@@ -1,19 +1,16 @@
 package com.holub.life;
 
-import java.io.*;
-
-import java.awt.*;
-import javax.swing.*;
-import java.awt.event.*;
-
 import com.holub.io.Files;
 import com.holub.ui.MenuSite;
 
-import com.holub.life.Cell;
-import com.holub.life.Storable;
-import com.holub.life.Clock;
-import com.holub.life.Neighborhood;
-import com.holub.life.Resident;
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.*;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * The Universe is a mediator that sits between the Swing
@@ -29,6 +26,11 @@ import com.holub.life.Resident;
 public class Universe extends JPanel
 {	private 		final Cell  	outermostCell;
 	private static	final Universe 	theInstance = new Universe();
+
+	/**
+	 * Univser의 State를 저장하는 Memento들의 stack
+	 * */
+    private List mementos = new ArrayList<Storable>();
 
 	/** The default height and width of a Neighborhood in cells.
 	 *  If it's too big, you'll run too slowly because
@@ -55,21 +57,30 @@ public class Universe extends JPanel
 
 		outermostCell = new Neighborhood
 						(	DEFAULT_GRID_SIZE,
+							// prototype: neighborhood
 							new Neighborhood
 							(	DEFAULT_GRID_SIZE,
+								// prototype: resident
 								new Resident()
 							)
 						);
 
+		// 실제 pixel 사이즈
 		final Dimension PREFERRED_SIZE =
 						new Dimension
 						(  outermostCell.widthInCells() * DEFAULT_CELL_SIZE,
 						   outermostCell.widthInCells() * DEFAULT_CELL_SIZE
 						);
 
+		// 컴포넌트 이벤트를 받는청취자 인터페이스
+        // 관련 메소드만을 오버라이드
 		addComponentListener
 		(	new ComponentAdapter()
-			{	public void componentResized(ComponentEvent e)
+			{	// componentHidden(ComponentEvent e)
+                // componentMoved(ComponentEvent e)
+                // componentShown(ComponentEvent e)
+                // 얘들도 있음. 아래 Resized만 override 한 것
+			    public void componentResized(ComponentEvent e)
 				{
 					// Make sure that the cells fit evenly into the
 					// total grid size so that each cell will be the
@@ -94,10 +105,14 @@ public class Universe extends JPanel
 		addMouseListener					//{=Universe.mouse}
 		(	new MouseAdapter()
 			{	public void mousePressed(MouseEvent e)
-				{	Rectangle bounds = getBounds();
+				{
+				    // getBounds는 Ractangle을 돌려줌 좌상(x,y)와 우하(width, height)를 가지고 있음
+				    Rectangle bounds = getBounds();
 					bounds.x = 0;
 					bounds.y = 0;
-					outermostCell.userClicked(e.getPoint(),bounds);
+					// 마우스가 눌리면 해당 포인트와 bound 전달.
+                    // outermostCell은 Neighborhood임
+					outermostCell.userClicked(e.getPoint(),bounds); // == Neighborhood.userClicked
 					repaint();
 				}
 			}
@@ -139,6 +154,22 @@ public class Universe extends JPanel
 			}
 		);
 
+		MenuSite.addLine
+				(this, "Grid", "Resotre Last State",
+						new ActionListener() {
+							public void actionPerformed(ActionEvent e) {
+								doLoadLocal();
+							}
+						}
+				);
+
+		/**
+         * Clock이 TimerTask를 돌면서 run() -> tick()
+         * tick()에서, 퍼블리셔가 퍼블리싱
+         * 퍼블리싱 -> deliverTo 동작
+         * deliverTo에서 구독자의 tick()동작시킴
+         * 조건에 따라 refreshNow()동작
+         * */
 		Clock.instance().addClockListener //{=Universe.clock.subscribe}
 		(	new Clock.Listener()
 			{	public void tick()
@@ -157,10 +188,13 @@ public class Universe extends JPanel
 
 	/** Singleton Accessor. The Universe object itself is manufactured
 	 *  in Neighborhood.createUniverse()
+	 *  그런데 이런것은 없음. 주석에서만 존재하고있음
 	 */
 
 	public static Universe instance()
-	{	return theInstance;
+	{
+	    // public static final theInstance = new Universe();
+	    return theInstance;
 	}
 
 	private void doLoad()
@@ -205,6 +239,33 @@ public class Universe extends JPanel
 		}
 	}
 
+	/**
+	 * popMemento()
+	 * Universe의 상태를 저장하는 Memento stack에서 가장 최근 Memento 하나를 꺼내어
+	 * 해당 상태로 Universe를 복구한다.
+	 * */
+	private void doLoadLocal() {
+			if(mementos.size() > 0) {
+				Clock.instance().stop();        // stop the game and
+				outermostCell.clear();            // clear the board.
+				outermostCell.transfer((Storable) mementos.remove(mementos.size()-1), new Point(0, 0), Cell.LOAD);
+			}
+		repaint();
+	}
+
+	/**
+	 * pushMemento()
+	 * 현재 Universe의 상태를 저장하여 Memento stack에 넣는다.
+	 * Go의 Tick, Agonizing, Slow, Medium, Fast 메뉴 클릭 시 tick() 이벤트 발생 전에 호출된다.
+	 * */
+	public void doStoreLocal() {
+			Clock.instance().stop();        // stop the game
+
+			Storable memento = outermostCell.createMemento();
+			outermostCell.transfer(memento, new Point(0, 0), Cell.STORE);
+			mementos.add(memento);
+	}
+
 	/** Override paint to ask the outermost Neighborhood
 	 *  (and any subcells) to draw themselves recursively.
 	 *  All knowledge of screen size is also encapsulated.
@@ -223,6 +284,9 @@ public class Universe extends JPanel
 		outermostCell.redraw(g, panelBounds, true);		//{=Universe.redraw1}
 	}
 
+	public void repaintNow() {
+		repaint();
+	}
 	/** Force a screen refresh by queing a request on
 	 *  the Swing event queue. This is an example of the
 	 *  Active Object pattern (not covered by the Gang of Four).

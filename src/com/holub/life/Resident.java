@@ -2,8 +2,11 @@ package com.holub.life;
 
 import java.awt.*;
 import javax.swing.*;
+
+import com.holub.ui.ColorTheme;
 import com.holub.ui.Colors;	// Contains constants specifying various
-							// colors not defined in java.awt.Color.
+import com.holub.ui.Theme;
+// colors not defined in java.awt.Color.
 import com.holub.life.Cell;
 import com.holub.life.Storable;
 import com.holub.life.Direction;
@@ -13,24 +16,27 @@ import com.holub.life.Universe;
 /*** ****************************************************************
  * The Resident class implements a single cell---a "resident" of a
  * block.
- *
  * @include /etc/license.txt
  */
 
 public final class Resident implements Cell
 {
-	private static final Color BORDER_COLOR = Colors.DARK_YELLOW;
-	private static final Color LIVE_COLOR 	= Color.RED;
-	private static final Color DEAD_COLOR   = Colors.LIGHT_YELLOW;
-
 	private boolean amAlive 	= false;
 	private boolean willBeAlive	= false;
 
+	/** 현재 살아있고 다음에도 살아있을 예정 : true
+     * 현재 살아있고 다음에 죽을 예정 : false
+     * 현재 죽어있고 다음에도 죽을 예정 : true
+     * 현재 죽어있으나 다음에 살 예정 : false
+     * */
 	private boolean isStable(){return amAlive == willBeAlive; }
 
 	/** figure the next state.
 	 *  @return true if the cell is not stable (will change state on the
 	 *  next transition().
+	 *  현재 상태와 다음 상태가 다르다면 isStable()은 false, figureNextState()은 바뀌어야하므로 true 반환
+	 *  현재 상태와 다음 상태가 같다면 isStable()은 true, figureNextState()는 바뀔 필요 없으므로 false 반환
+
 	 */
 	public boolean figureNextState(
 							Cell north, 	Cell south,
@@ -85,14 +91,14 @@ public final class Resident implements Cell
 
 	public void redraw(Graphics g, Rectangle here, boolean drawAll)
     {   g = g.create();
-		g.setColor(amAlive ? LIVE_COLOR : DEAD_COLOR );
+		g.setColor(amAlive ? ColorTheme.LIVE_COLOR : ColorTheme.DEAD_COLOR );
 		g.fillRect(here.x+1, here.y+1, here.width-1, here.height-1);
 
 		// Doesn't draw a line on the far right and bottom of the
 		// grid, but that's life, so to speak. It's not worth the
 		// code for the special case.
 
-		g.setColor( BORDER_COLOR );
+		g.setColor( ColorTheme.BORDER_COLOR );
 		g.drawLine( here.x, here.y, here.x, here.y + here.height );
 		g.drawLine( here.x, here.y, here.x + here.width, here.y  );
 		g.dispose();
@@ -107,6 +113,12 @@ public final class Resident implements Cell
 	public Cell    create()			{return new Resident();			}
 	public int 	   widthInCells()	{return 1;}
 
+	/** 현재 살아있고 다음에도 살 예정이면(isStable()==true) Direction.NONE
+     * 현재 죽어있고 다음에도 죽을 예정(isStable()==true) Direction.NONE
+     * 현재 살아있고 다음에 죽을 예정이면(isStable()==false) Direction.ALL
+	 * 현재 죽어있으나 다음에 살 예정이면(isStable()==false) Direction.ALL 반환
+     * 모두 Direction Type
+	 * */
 	public Direction isDisruptiveTo()
 	{	return isStable() ? Direction.NONE : Direction.ALL ;
 	}

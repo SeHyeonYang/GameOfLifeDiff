@@ -85,7 +85,13 @@ public class Clock
 		// First set up a single listener that will handle all the
 		// menu-selection events except "Exit"
 
-		ActionListener modifier =									//{=startSetup}
+
+		/**
+		 * yealim : 개선사항
+		 * ActionListener modifier를 따로 class로 빼서 각 메뉴마다 ActionListener 따로 구현..? (Factory Method Pattern 같오)
+		 * 근데 if문이 여기 하나뿐이라서 따로 빼는 것이 의미가 있는지 의문... class 각각 만드는게 더 overhead일지도...
+		 * */
+		/*ActionListener modifier =									//{=startSetup}
 			new ActionListener()
 			{	public void actionPerformed(ActionEvent e)
 				{
@@ -98,7 +104,7 @@ public class Clock
 						startTicking(   toDo=='A' ? 500:	  // agonizing
 										toDo=='S' ? 150:	  // slow
 										toDo=='M' ? 70 :	  // medium
-										toDo=='F' ? 30 : 0 ); // fast
+										toDo=='F' ? 30 : 0 ); // fast , halt
 				}
 			};
 																	// {=midSetup}
@@ -107,8 +113,100 @@ public class Clock
 		MenuSite.addLine(this,"Go","Agonizing",	 	  	modifier);
 		MenuSite.addLine(this,"Go","Slow",		 		modifier);
 		MenuSite.addLine(this,"Go","Medium",	 	 	modifier);
-		MenuSite.addLine(this,"Go","Fast",				modifier); // {=endSetup}
+		MenuSite.addLine(this,"Go","Fast",				modifier); // {=endSetup} */
+
+		MenuSite.addLine(this,"Go","Halt",  			createMenuListener("Halt"));
+		MenuSite.addLine(this,"Go","Tick (Single Step)", createMenuListener("Tick"));
+		MenuSite.addLine(this,"Go","Agonizing",	 	  	createMenuListener("Agonizing"));
+		MenuSite.addLine(this,"Go","Slow",		 		createMenuListener("Slow"));
+		MenuSite.addLine(this,"Go","Medium",	 	 	createMenuListener("Medium"));
+		MenuSite.addLine(this,"Go","Fast",				createMenuListener("Fast"));
+		MenuSite.addLine(this,"Go","Snail",				createMenuListener("Snail"));// {=endSetup}
 	}	//{=endCreateMenus}
+
+    public ActionListener createMenuListener(String menu) {
+        ActionListener modifier = null;
+
+        if(menu.equals("Tick")) {
+            modifier = new TickActionListener();
+        } else if(menu.equals("Agonizing")) {
+            modifier = new AgonizingActionListener();
+        }  else if(menu.equals("Slow")) {
+            modifier = new SlowActionListener();
+        } else if(menu.equals("Medium")) {
+            modifier = new MediumActionListener();
+        } else if(menu.equals("Fast")) {
+            modifier = new FastActionListener();
+        } else if(menu.equals("Snail")) {
+            modifier = new SnailActionListener();
+        } else {
+            modifier = new MenuActionListener();
+        }
+
+        return modifier;
+    }
+
+	private class MenuActionListener implements ActionListener {
+        public void actionPerformed(ActionEvent e) {
+			startTicking(0);
+		}
+		protected void storeCurrent() {
+			Universe.instance().doStoreLocal();
+		}
+	}
+
+	private class TickActionListener extends MenuActionListener {
+
+		@Override
+		public void actionPerformed(ActionEvent e) {
+			storeCurrent();
+			tick();
+		}
+	}
+
+	private class AgonizingActionListener extends MenuActionListener {
+
+		@Override
+		public void actionPerformed(ActionEvent e) {
+			storeCurrent();
+			startTicking(500);
+		}
+	}
+
+	private class SlowActionListener extends MenuActionListener {
+
+		@Override
+		public void actionPerformed(ActionEvent e) {
+			storeCurrent();
+			startTicking(150);
+		}
+	}
+
+	private class MediumActionListener extends MenuActionListener {
+
+		@Override
+		public void actionPerformed(ActionEvent e) {
+			storeCurrent();
+			startTicking(70);
+		}
+	}
+
+	private class FastActionListener extends MenuActionListener {
+
+		@Override
+		public void actionPerformed(ActionEvent e) {
+			storeCurrent();
+			startTicking(30);
+		}
+	}
+
+	private class SnailActionListener extends  MenuActionListener {
+        @Override
+        public void actionPerformed(ActionEvent e) {
+        	storeCurrent();
+            startTicking(250);
+        }
+    }
 
 	private Publisher publisher = new Publisher();
 
